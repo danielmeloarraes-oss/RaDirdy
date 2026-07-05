@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editor 3D - Importar e Exportar</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f0f1a;
+            overflow: hidden;
+            color: white;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* Menu lateral esquerdo */
+        #sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 220px;
+            background: rgba(20, 20, 40, 0.92);
+            backdrop-filter: blur(12px);
+            padding: 16px 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            z-index: 10;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            pointer-events: auto;
+        }
+        #sidebar::-webkit-scrollbar { width: 4px; }
+        #sidebar::-webkit-scrollbar-track { background: transparent; }
+        #sidebar::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
+
+        #sidebar h3 {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #818cf8;
+            margin: 14px 0 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding-bottom: 6px;
+        }
+        #sidebar h3:first-of-type { margin-top: 0; }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .btn-group button {
+            flex: 1;
+            min-width: 60px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .btn-group button:hover {
+            background: rgba(99, 102, 241, 0.25);
+            border-color: #818cf8;
+            transform: scale(1.02);
+        }
+        .btn-group button.primary {
+            background: #4f46e5;
+            border-color: #6366f1;
+        }
+        .btn-group button.primary:hover {
+            background: #6366f1;
+        }
+        .btn-group button.active {
+            background: #4f46e5;
+            border-color: #818cf8;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+        }
+        .btn-group button.danger {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .btn-group button.danger:hover {
+            background: rgba(239, 68, 68, 0.4);
+        }
+        .btn-group button.success {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+        .btn-group button.success:hover {
+            background: rgba(34, 197, 94, 0.4);
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+            padding: 4px 0;
+        }
+        .control-row label {
+            font-size: 12px;
+            color: #a0a0c0;
+            min-width: 50px;
+        }
+        .control-row input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 2px;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .control-row input[type="range"] {
+            flex: 1;
+            accent-color: #818cf8;
+            height: 4px;
+            cursor: pointer;
+        }
+        .control-row input[type="number"] {
+            width: 55px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .control-row input[type="number"]:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+        .control-row input[type="file"] {
+            display: none;
+        }
+
+        .separator {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 10px 0;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            opacity: 0.4;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 16px;
+            border-radius: 20px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #status {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 12px;
+            opacity: 0.4;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 14px;
+            border-radius: 20px;
+        }
+
+        /* Modal para código */
+        #codeModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        #codeModal.active {
+            display: flex;
+        }
+        #codeModalContent {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 80vh;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        }
+        #codeModalContent h2 {
+            color: #818cf8;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        #codeModalContent textarea {
+            width: 100%;
+            height: 400px;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            line-height: 1.5;
+            tab-size: 2;
+        }
+        #codeModalContent textarea:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+        #codeModalContent .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            justify-content: flex-end;
+        }
+        #codeModalContent .modal-buttons button {
+            padding: 8px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        #codeModalContent .modal-buttons button.close-btn {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        #codeModalContent .modal-buttons button.close-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        #codeModalContent .modal-buttons button.copy-btn {
+            background: #4f46e5;
+            color: white;
+        }
+        #codeModalContent .modal-buttons button.copy-btn:hover {
+            background: #6366f1;
+        }
+
+        /* Drop zone */
+        #dropZone {
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 4px 0;
+        }
+        #dropZone:hover {
+            border-color: #818cf8;
+            background: rgba(99, 102, 241, 0.05);
+        }
+        #dropZone.dragover {
+            border-color: #4f46e5;
+            background: rgba(79, 70, 229, 0.15);
+        }
+        #dropZone span {
+            font-size: 12px;
+            color: #a0a0c0;
+        }
+        #dropZone .icon {
+            font-size: 20px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 180px;
+                left: 10px;
+                top: 10px;
+                padding: 12px 10px;
+                font-size: 11px;
+                max-height: calc(100vh - 20px);
+            }
+            .btn-group button { font-size: 10px; padding: 4px 6px; min-width: 40px; }
+            .control-row label { font-size: 10px; min-width: 35px; }
+            .control-row input[type="number"] { width: 40px; font-size: 10px; }
+            #codeModalContent textarea { height: 250px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <h3>📦 Criar</h3>
+        <div class="btn-group">
+            <button id="btnAddBox">Caixa</button>
+            <button id="btnAddSphere">Esfera</button>
+            <button id="btnAddCylinder">Cilindro</button>
+        </div>
+        <div class="btn-group">
+            <button id="btnAddTorus">Torus</button>
+            <button id="btnAddPlane">Plano</button>
+            <button id="btnAddCone">Cone</button>
+        </div>
+
+        <h3>📤 Importar</h3>
+        <div id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <span class="icon">📁</span>
+            <span>Clique ou arraste arquivo<br/><small>.glb, .gltf, .obj</small></span>
+        </div>
+        <input type="file" id="fileInput" accept=".glb,.gltf,.obj" />
+
+        <h3>🛠️ Transformar</h3>
+        <div class="btn-group">
+            <button id="btnTranslate" class="active">↕ Mover</button>
+            <button id="btnRotate">🔄 Girar</button>
+            <button id="btnScale">↔ Escalar</button>
+        </div>
+
+        <div class="separator"></div>
+
+        <h3>🎨 Propriedades</h3>
+        <div class="control-row">
+            <label>Cor</label>
+            <input type="color" id="colorPicker" value="#4f46e5" />
+        </div>
+        <div class="control-row">
+            <label>X</label>
+            <input type="number" id="posX" step="0.05" value="0" />
+            <label>Y</label>
+            <input type="number" id="posY" step="0.05" value="0" />
+            <label>Z</label>
+            <input type="number" id="posZ" step="0.05" value="0" />
+        </div>
+        <div class="control-row">
+            <label>Rot X</label>
+            <input type="number" id="rotX" step="0.05" value="0" />
+            <label>Rot Y</label>
+            <input type="number" id="rotY" step="0.05" value="0" />
+            <label>Rot Z</label>
+            <input type="number" id="rotZ" step="0.05" value="0" />
+        </div>
+        <div class="control-row">
+            <label>Escala</label>
+            <input type="range" id="scaleSlider" min="0.1" max="3.0" step="0.05" value="1.0" />
+            <span id="scaleValue" style="font-size:12px;min-width:30px;">1.00</span>
+        </div>
+
+        <div class="separator"></div>
+
+        <h3>🎬 Animações</h3>
+        <div class="btn-group">
+            <button id="btnToggleAnim">▶️ Play</button>
+            <button id="btnAddAnimation">✨ Nova</button>
+        </div>
+
+        <div class="separator"></div>
+
+        <h3>💾 Exportar</h3>
+        <div class="btn-group">
+            <button id="btnExportGLTF" class="primary">⬇️ .glb</button>
+            <button id="btnExportOBJ">⬇️ .obj</button>
+            <button id="btnShowCode" class="success">📄 Código</button>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="btn-group">
+            <button id="btnRemoveSelected" class="danger">🗑️ Remover</button>
+            <button id="btnClearAll" class="danger">🧹 Limpar</button>
+        </div>
+    </div>
+
+    <!-- Modal para código -->
+    <div id="codeModal">
+        <div id="codeModalContent">
+            <h2>📄 Código Three.js do Modelo</h2>
+            <textarea id="codeOutput" readonly></textarea>
+            <div class="modal-buttons">
+                <button class="close-btn" onclick="closeCodeModal()">Fechar</button>
+                <button class="copy-btn" onclick="copyCode()">📋 Copiar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="info">🖱️ Clique para selecionar | Use as ferramentas de transformação</div>
+    <div id="status">Objetos: <span id="objCount">0</span></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TransformControls } from 'three/addons/controls/TransformControls.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+        // --- Funções globais para o modal ---
+        window.closeCodeModal = function() {
+            document.getElementById('codeModal').classList.remove('active');
+        };
+
+        window.copyCode = function() {
+            const textarea = document.getElementById('codeOutput');
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                alert('✅ Código copiado para a área de transferência!');
+            }).catch(() => {
+                document.execCommand('copy');
+                alert('✅ Código copiado!');
+            });
+        };
+
+        // --- Cena ---
+        const container = document.getElementById('container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f0f1a);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(6, 4, 8);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        container.appendChild(renderer.domElement);
+
+        // Controles de órbita
+        const orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.08;
+        orbitControls.minDistance = 2;
+        orbitControls.maxDistance = 30;
+        orbitControls.target.set(0, 0, 0);
+
+        // TransformControls
+        const transformControls = new TransformControls(camera, renderer.domElement);
+        transformControls.setSize(0.8);
+        scene.add(transformControls);
+
+        transformControls.addEventListener('dragging-changed', (event) => {
+            orbitControls.enabled = !event.value;
+        });
+
+        // --- Luzes ---
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+        mainLight.position.set(5, 10, 7);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 1024;
+        mainLight.shadow.mapSize.height = 1024;
+        scene.add(mainLight);
+
+        const fillLight = new THREE.DirectionalLight(0x8888ff, 0.4);
+        fillLight.position.set(-5, 0, 5);
+        scene.add(fillLight);
+
+        const backLight = new THREE.DirectionalLight(0xffaa88, 0.3);
+        backLight.position.set(0, -2, -8);
+        scene.add(backLight);
+
+        // Grid e chão
+        const gridHelper = new THREE.GridHelper(12, 20, 0x818cf8, 0x4f46e5);
+        gridHelper.position.y = -0.5;
+        scene.add(gridHelper);
+
+        const groundGeo = new THREE.PlaneGeometry(12, 12);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x0f0f1a,
+            roughness: 0.8,
+            metalness: 0.2,
+            transparent: true,
+            opacity: 0.6,
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.5;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // --- Estado ---
+        const objects = [];
+        let selectedObject = null;
+        let isAnimating = false;
+        let animationTime = 0;
+        const animations = [];
+        let currentTransformMode = 'translate';
+
+        // --- Loaders ---
+        const gltfLoader = new GLTFLoader();
+        const objLoader = new OBJLoader();
+
+        // --- Funções de destaque ---
+        function highlightSelected(obj) {
+            objects.forEach(o => {
+                if (o === obj) {
+                    if (o.material) {
+                        if (Array.isArray(o.material)) {
+                            o.material.forEach(m => m.emissive?.setHex(0x333366));
+                        } else {
+                            o.material.emissive?.setHex(0x333366);
+                        }
+                    }
+                } else {
+                    if (o.material) {
+                        if (Array.isArray(o.material)) {
+                            o.material.forEach(m => m.emissive?.setHex(0x000000));
+                        } else {
+                            o.material.emissive?.setHex(0x000000);
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Seleção ---
+        function selectObject(obj) {
+            if (selectedObject === obj) return;
+            selectedObject = obj;
+            highlightSelected(obj);
+            transformControls.detach();
+            if (obj) {
+                transformControls.attach(obj);
+                if (obj.material && obj.material.color) {
+                    const color = obj.material.color.getHexString();
+                    document.getElementById('colorPicker').value = '#' + color;
+                }
+                document.getElementById('scaleSlider').value = obj.scale.x;
+                document.getElementById('scaleValue').textContent = obj.scale.x.toFixed(2);
+                updatePositionUI(obj);
+                updateRotationUI(obj);
+                setTransformMode(currentTransformMode);
+            }
+        }
+
+        function updatePositionUI(obj) {
+            document.getElementById('posX').value = obj.position.x.toFixed(2);
+            document.getElementById('posY').value = obj.position.y.toFixed(2);
+            document.getElementById('posZ').value = obj.position.z.toFixed(2);
+        }
+
+        function updateRotationUI(obj) {
+            document.getElementById('rotX').value = THREE.MathUtils.radToDeg(obj.rotation.x).toFixed(1);
+            document.getElementById('rotY').value = THREE.MathUtils.radToDeg(obj.rotation.y).toFixed(1);
+            document.getElementById('rotZ').value = THREE.MathUtils.radToDeg(obj.rotation.z).toFixed(1);
+        }
+
+        // --- Modo de transformação ---
+        function setTransformMode(mode) {
+            currentTransformMode = mode;
+            transformControls.setMode(mode);
+            document.querySelectorAll('#btnTranslate, #btnRotate, #btnScale').forEach(btn => btn.classList.remove('active'));
+            if (mode === 'translate') document.getElementById('btnTranslate').classList.add('active');
+            else if (mode === 'rotate') document.getElementById('btnRotate').classList.add('active');
+            else if (mode === 'scale') document.getElementById('btnScale').classList.add('active');
+        }
+
+        // --- Adicionar objeto à cena ---
+        function addObjectToScene(obj) {
+            obj.castShadow = true;
+            obj.receiveShadow = true;
+            obj.userData.isShape = true;
+            
+            // Se for um grupo (modelo importado), adiciona todos os filhos
+            if (obj.isGroup) {
+                obj.children.forEach(child => {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    child.userData.isShape = true;
+                });
+                scene.add(obj);
+                objects.push(obj);
+                // Adiciona todos os filhos como objetos individuais para seleção
+                obj.children.forEach(child => {
+                    if (child.isMesh) {
+                        objects.push(child);
+                    }
+                });
+            } else {
+                scene.add(obj);
+                objects.push(obj);
+            }
+            
+            updateCounter();
+            selectObject(obj);
+            return obj;
+        }
+
+        // --- Criação de formas ---
+        function createShape(geometry, color) {
+            const material = new THREE.MeshStandardMaterial({
+                color: color || '#4f46e5',
+                roughness: 0.3,
+                metalness: 0.6,
+                emissive: new THREE.Color(0x000000),
+                emissiveIntensity: 0,
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.y = 0.5;
+            return addObjectToScene(mesh);
+        }
+
+        function addBox() {
+            const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            return createShape(geo, document.getElementById('colorPicker').value);
+        }
+
+        function addSphere() {
+            const geo = new THREE.SphereGeometry(0.8, 32, 32);
+            return createShape(geo, document.getElementById('colorPicker').value);
+        }
+
+        function addCylinder() {
+            const geo = new THREE.CylinderGeometry(0.7, 0.7, 1.4, 32);
+            return createShape(geo, document.getElementById('colorPicker').value);
+        }
+
+        function addTorus() {
+            const geo = new THREE.TorusGeometry(0.8, 0.3, 24, 48);
+            return createShape(geo, document.getElementById('colorPicker').value);
+        }
+
+        function addPlane() {
+            const geo = new THREE.PlaneGeometry(1.6, 1.6);
+            const mesh = createShape(geo, document.getElementById('colorPicker').value);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.y = 0.1;
+            return mesh;
+        }
+
+        function addCone() {
+            const geo = new THREE.ConeGeometry(0.8, 1.6, 32);
+            return createShape(geo, document.getElementById('colorPicker').value);
+        }
+
+        // --- Importar modelo ---
+        async function importModel(file) {
+            const extension = file.name.split('.').pop().toLowerCase();
+            
+            try {
+                let model;
+                
+                if (extension === 'glb' || extension === 'gltf') {
+                    const url = URL.createObjectURL(file);
+                    model = await new Promise((resolve, reject) => {
+                        gltfLoader.load(url, (gltf) => {
+                            URL.revokeObjectURL(url);
+                            resolve(gltf.scene);
+                        }, undefined, reject);
+                    });
+                } else if (extension === 'obj') {
+                    const text = await file.text();
+                    model = objLoader.parse(text);
+                } else {
+                    alert('Formato não suportado. Use .glb, .gltf ou .obj');
+                    return;
+                }
+
+                // Centraliza o modelo
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.sub(center);
+                model.position.y += 0.5;
+
+                // Adiciona à cena
+                addObjectToScene(model);
+                
+                // Ajusta escala se for muito grande ou pequeno
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                if (maxDim > 5) {
+                    model.scale.multiplyScalar(5 / maxDim);
+                } else if (maxDim < 0.5) {
+                    model.scale.multiplyScalar(2);
+                }
+
+                // Seleciona o modelo
+                selectObject(model);
+                
+                console.log(`✅ Modelo importado: ${file.name}`);
+                alert(`✅ Modelo "${file.name}" importado com sucesso!`);
+                
+            } catch (error) {
+                console.error('Erro ao importar modelo:', error);
+                alert('❌ Erro ao importar o modelo. Verifique o console para mais detalhes.');
+            }
+        }
+
+        // --- Evento de arquivo ---
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await importModel(file);
+            }
+            e.target.value = ''; // Reset
+        });
+
+        // --- Drag and Drop ---
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                await importModel(files[0]);
+            }
+        });
+
+        // --- Gerar código Three.js ---
+        function generateThreeJSCode() {
+            if (objects.length === 0) {
+                return '// Nenhum objeto para gerar código';
+            }
+
+            let code = `// ============================================\n`;
+            code += `// Código Three.js gerado pelo editor\n`;
+            code += `// Total de objetos: ${objects.length}\n`;
+            code += `// ============================================\n\n`;
+
+            code += `import * as THREE from 'three';\n`;
+            code += `import { OrbitControls } from 'three/addons/controls/OrbitControls.js';\n\n`;
+
+            code += `// --- Cena ---\n`;
+            code += `const scene = new THREE.Scene();\n`;
+            code += `scene.background = new THREE.Color(0x0f0f1a);\n\n`;
+
+            code += `const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);\n`;
+            code += `camera.position.set(6, 4, 8);\n`;
+            code += `camera.lookAt(0, 0, 0);\n\n`;
+
+            code += `const renderer = new THREE.WebGLRenderer({ antialias: true });\n`;
+            code += `renderer.setSize(window.innerWidth, window.innerHeight);\n`;
+            code += `renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));\n`;
+            code += `renderer.shadowMap.enabled = true;\n`;
+            code += `renderer.shadowMap.type = THREE.PCFSoftShadowMap;\n`;
+            code += `document.body.appendChild(renderer.domElement);\n\n`;
+
+            code += `// --- Controles ---\n`;
+            code += `const controls = new OrbitControls(camera, renderer.domElement);\n`;
+            code += `controls.enableDamping = true;\n`;
+            code += `controls.dampingFactor = 0.08;\n`;
+            code += `controls.minDistance = 2;\n`;
+            code += `controls.maxDistance = 30;\n`;
+            code += `controls.target.set(0, 0, 0);\n\n`;
+
+            code += `// --- Luzes ---\n`;
+            code += `const ambientLight = new THREE.AmbientLight(0x404060, 0.6);\n`;
+            code += `scene.add(ambientLight);\n\n`;
+            code += `const mainLight = new THREE.DirectionalLight(0xffeedd, 1.8);\n`;
+            code += `mainLight.position.set(5, 10, 7);\n`;
+            code += `mainLight.castShadow = true;\n`;
+            code += `mainLight.shadow.mapSize.width = 1024;\n`;
+            code += `mainLight.shadow.mapSize.height = 1024;\n`;
+            code += `scene.add(mainLight);\n\n`;
+            code += `const fillLight = new THREE.DirectionalLight(0x8888ff, 0.4);\n`;
+            code += `fillLight.position.set(-5, 0, 5);\n`;
+            code += `scene.add(fillLight);\n\n`;
+            code += `const backLight = new THREE.DirectionalLight(0xffaa88, 0.3);\n`;
+            code += `backLight.position.set(0, -2, -8);\n`;
+            code += `scene.add(backLight);\n\n`;
+
+            code += `// --- Grid ---\n`;
+            code += `const gridHelper = new THREE.GridHelper(12, 20, 0x818cf8, 0x4f46e5);\n`;
+            code += `gridHelper.position.y = -0.5;\n`;
+            code += `scene.add(gridHelper);\n\n`;
+
+            // Objetos
+            code += `// --- Objetos 3D ---\n`;
+            let meshCounter = 0;
+            objects.forEach((obj) => {
+                if (obj.isMesh && obj.geometry) {
+                    const geometryType = obj.geometry.type;
+                    let geoParams = '';
+                    switch(geometryType) {
+                        case 'BoxGeometry':
+                            const box = obj.geometry.parameters;
+                            geoParams = `${box.width.toFixed(2)}, ${box.height.toFixed(2)}, ${box.depth.toFixed(2)}`;
+                            break;
+                        case 'SphereGeometry':
+                            const sphere = obj.geometry.parameters;
+                            geoParams = `${sphere.radius.toFixed(2)}, ${sphere.widthSegments}, ${sphere.heightSegments}`;
+                            break;
+                        case 'CylinderGeometry':
+                            const cyl = obj.geometry.parameters;
+                            geoParams = `${cyl.radiusTop.toFixed(2)}, ${cyl.radiusBottom.toFixed(2)}, ${cyl.height.toFixed(2)}, ${cyl.radialSegments}`;
+                            break;
+                        case 'TorusGeometry':
+                            const torus = obj.geometry.parameters;
+                            geoParams = `${torus.radius.toFixed(2)}, ${torus.tube.toFixed(2)}, ${torus.radialSegments}, ${torus.tubularSegments}`;
+                            break;
+                        case 'PlaneGeometry':
+                            const plane = obj.geometry.parameters;
+                            geoParams = `${plane.width.toFixed(2)}, ${plane.height.toFixed(2)}`;
+                            break;
+                        case 'ConeGeometry':
+                            const cone = obj.geometry.parameters;
+                            geoParams = `${cone.radius.toFixed(2)}, ${cone.height.toFixed(2)}, ${cone.radialSegments}`;
+                            break;
+                        default:
+                            geoParams = '/* parâmetros personalizados */';
+                    }
+
+                    const color = obj.material.color ? obj.material.color.getHexString() : '4f46e5';
+                    const pos = obj.position;
+                    const rot = obj.rotation;
+                    const scale = obj.scale;
+
+                    code += `const mesh${meshCounter} = new THREE.Mesh(\n`;
+                    code += `    new THREE.${geometryType}(${geoParams}),\n`;
+                    code += `    new THREE.MeshStandardMaterial({\n`;
+                    code += `        color: 0x${color},\n`;
+                    code += `        roughness: ${(obj.material.roughness || 0.3).toFixed(2)},\n`;
+                    code += `        metalness: ${(obj.material.metalness || 0.6).toFixed(2)},\n`;
+                    code += `    })\n`;
+                    code += `);\n`;
+                    code += `mesh${meshCounter}.position.set(${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)});\n`;
+                    code += `mesh${meshCounter}.rotation.set(${rot.x.toFixed(4)}, ${rot.y.toFixed(4)}, ${rot.z.toFixed(4)});\n`;
+                    code += `mesh${meshCounter}.scale.set(${scale.x.toFixed(2)}, ${scale.y.toFixed(2)}, ${scale.z.toFixed(2)});\n`;
+                    code += `mesh${meshCounter}.castShadow = true;\n`;
+                    code += `mesh${meshCounter}.receiveShadow = true;\n`;
+                    code += `scene.add(mesh${meshCounter});\n\n`;
+                    meshCounter++;
+                }
+            });
+
+            // Animação se tiver
+            if (animations.length > 0) {
+                code += `// --- Animações ---\n`;
+                code += `let time = 0;\n`;
+                code += `function animateObjects(delta) {\n`;
+                code += `    time += delta;\n`;
+                animations.forEach((anim, idx) => {
+                    const objIndex = objects.indexOf(anim.object);
+                    if (objIndex !== -1) {
+                        code += `    // Animação ${idx+1}: ${anim.type}.${anim.prop}\n`;
+                        code += `    const t${idx} = (time % ${anim.duration.toFixed(2)}) / ${anim.duration.toFixed(2)};\n`;
+                        code += `    const ease${idx} = t${idx} < 0.5 ? 2 * t${idx} * t${idx} : 1 - Math.pow(-2 * t${idx} + 2, 2) / 2;\n`;
+                        code += `    mesh${objIndex}.${anim.type}.${anim.prop} = ${anim.startVal.toFixed(2)} + (${anim.endVal.toFixed(2)} - ${anim.startVal.toFixed(2)}) * ease${idx};\n`;
+                    }
+                });
+                code += `}\n\n`;
+            }
+
+            // Render loop
+            code += `// --- Loop de renderização ---\n`;
+            code += `function animate(time) {\n`;
+            code += `    const delta = Math.min((time - lastTime) / 1000, 0.05);\n`;
+            code += `    lastTime = time;\n\n`;
+            if (animations.length > 0) {
+                code += `    animateObjects(delta);\n\n`;
+            }
+            code += `    controls.update();\n`;
+            code += `    renderer.render(scene, camera);\n`;
+            code += `    requestAnimationFrame(animate);\n`;
+            code += `}\n\n`;
+            code += `let lastTime = 0;\n`;
+            code += `animate(0);\n\n`;
+
+            code += `// --- Resize ---\n`;
+            code += `window.addEventListener('resize', () => {\n`;
+            code += `    const w = window.innerWidth;\n`;
+            code += `    const h = window.innerHeight;\n`;
+            code += `    camera.aspect = w / h;\n`;
+            code += `    camera.updateProjectionMatrix();\n`;
+            code += `    renderer.setSize(w, h);\n`;
+            code += `});\n`;
+
+            return code;
+        }
+
+        function showCode() {
+            const code = generateThreeJSCode();
+            document.getElementById('codeOutput').value = code;
+            document.getElementById('codeModal').classList.add('active');
+        }
+
+        // --- Raycaster para seleção ---
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        renderer.domElement.addEventListener('click', (event) => {
+            if (transformControls.dragging) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            
+            // Verifica todos os objetos incluindo filhos de grupos
+            const allObjects = [];
+            objects.forEach(obj => {
+                if (obj.isGroup) {
+                    obj.children.forEach(child => {
+                        if (child.isMesh) allObjects.push(child);
+                    });
+                } else {
+                    allObjects.push(obj);
+                }
+            });
+            
+            const intersects = raycaster.intersectObjects(allObjects);
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                // Encontra o pai se for filho de um grupo
+                let parent = obj;
+                while (parent.parent && !objects.includes(parent)) {
+                    parent = parent.parent;
+                }
+                if (objects.includes(parent)) {
+                    selectObject(parent);
+                } else if (objects.includes(obj)) {
+                    selectObject(obj);
+                }
+            } else {
+                transformControls.detach();
+                selectedObject = null;
+                highlightSelected(null);
+            }
+        });
+
+        // --- Contador ---
+        function updateCounter() {
+            document.getElementById('objCount').textContent = objects.length;
+        }
+
+        // --- Remover ---
+        function removeSelected() {
+            if (!selectedObject) return;
+            const idx = objects.indexOf(selectedObject);
+            if (idx !== -1) {
+                transformControls.detach();
+                scene.remove(selectedObject);
+                objects.splice(idx, 1);
+                for (let i = animations.length - 1; i >= 0; i--) {
+                    if (animations[i].object === selectedObject) {
+                        animations.splice(i, 1);
+                    }
+                }
+                selectedObject = null;
+                updateCounter();
+                highlightSelected(null);
+            }
+        }
+
+        function clearAll() {
+            transformControls.detach();
+            for (let i = objects.length - 1; i >= 0; i--) {
+                scene.remove(objects[i]);
+            }
+            objects.length = 0;
+            animations.length = 0;
+            selectedObject = null;
+            updateCounter();
+            highlightSelected(null);
+        }
+
+        // --- Exportadores ---
+        function exportGLTF() {
+            if (objects.length === 0) {
+                alert('Nenhum objeto para exportar!');
+                return;
+            }
+            const exporter = new GLTFExporter();
+            const exportScene = new THREE.Scene();
+            objects.forEach(obj => {
+                const clone = obj.clone();
+                if (clone.material) {
+                    clone.material = obj.material.clone();
+                }
+                exportScene.add(clone);
+            });
+            exporter.parse(exportScene, (buffer) => {
+                const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'modelo_3d.glb';
+                link.click();
+            }, (err) => {
+                console.error('Erro ao exportar GLTF:', err);
+                alert('Erro ao exportar .glb');
+            }, { binary: true });
+        }
+
+        function exportOBJ() {
+            if (objects.length === 0) {
+                alert('Nenhum objeto para exportar!');
+                return;
+            }
+            const exporter = new OBJExporter();
+            const exportScene = new THREE.Scene();
+            objects.forEach(obj => {
+                const clone = obj.clone();
+                if (clone.material) {
+                    clone.material = obj.material.clone();
+                }
+                exportScene.add(clone);
+            });
+            const result = exporter.parse(exportScene);
+            const blob = new Blob([result], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'modelo_3d.obj';
+            link.click();
+        }
+
+        // --- Animações ---
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            document.getElementById('btnToggleAnim').textContent = isAnimating ? '⏸️ Pausar' : '▶️ Play';
+            if (isAnimating && objects.length === 0) {
+                alert('Adicione um objeto primeiro!');
+                isAnimating = false;
+                document.getElementById('btnToggleAnim').textContent = '▶️ Play';
+            }
+        }
+
+        function addNewAnimation() {
+            if (!selectedObject) {
+                alert('Selecione um objeto primeiro!');
+                return;
+            }
+            const type = Math.random() > 0.5 ? 'position' : 'rotation';
+            const prop = type === 'position' ? 'y' : 'y';
+            const startVal = selectedObject[type][prop];
+            const endVal = startVal + (Math.random() - 0.5) * 4;
+            const duration = 2 + Math.random() * 3;
+            animations.push({
+                object: selectedObject,
+                type: type,
+                prop: prop,
+                startVal: startVal,
+                endVal: endVal,
+                duration: duration,
+                elapsed: 0,
+            });
+            alert(`Animação adicionada: ${type}.${prop} de ${startVal.toFixed(2)} para ${endVal.toFixed(2)} em ${duration}s`);
+        }
+
+        function updateAnimations(delta) {
+            if (!isAnimating) return;
+            animationTime += delta;
+            for (const anim of animations) {
+                anim.elapsed += delta;
+                const t = Math.min(anim.elapsed / anim.duration, 1);
+                const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                const val = anim.startVal + (anim.endVal - anim.startVal) * ease;
+                anim.object[anim.type][anim.prop] = val;
+                if (t >= 1) {
+                    const temp = anim.startVal;
+                    anim.startVal = anim.endVal;
+                    anim.endVal = temp;
+                    anim.elapsed = 0;
+                }
+            }
+        }
+
+        // --- Eventos da UI ---
+        document.getElementById('btnAddBox').addEventListener('click', addBox);
+        document.getElementById('btnAddSphere').addEventListener('click', addSphere);
+        document.getElementById('btnAddCylinder').addEventListener('click', addCylinder);
+        document.getElementById('btnAddTorus').addEventListener('click', addTorus);
+        document.getElementById('btnAddPlane').addEventListener('click', addPlane);
+        document.getElementById('btnAddCone').addEventListener('click', addCone);
+
+        document.getElementById('btnTranslate').addEventListener('click', () => setTransformMode('translate'));
+        document.getElementById('btnRotate').addEventListener('click', () => setTransformMode('rotate'));
+        document.getElementById('btnScale').addEventListener('click', () => setTransformMode('scale'));
+
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            if (selectedObject && selectedObject.material && selectedObject.material.color) {
+                selectedObject.material.color.set(e.target.value);
+            }
+        });
+
+        document.getElementById('scaleSlider').addEventListener('input', (e) => {
+            if (selectedObject) {
+                const val = parseFloat(e.target.value);
+                selectedObject.scale.set(val, val, val);
+                document.getElementById('scaleValue').textContent = val.toFixed(2);
+            }
+        });
+
+        ['posX', 'posY', 'posZ'].forEach(id => {
+            document.getElementById(id).addEventListener('change', (e) => {
+                if (selectedObject) {
+                    const axis = id.replace('pos', '').toLowerCase();
+                    selectedObject.position[axis] = parseFloat(e.target.value);
+                }
+            });
+        });
+
+        ['rotX', 'rotY', 'rotZ'].forEach(id => {
+            document.getElementById(id).addEventListener('change', (e) => {
+                if (selectedObject) {
+                    const axis = id.replace('rot', '').toLowerCase();
+                    selectedObject.rotation[axis] = THREE.MathUtils.degToRad(parseFloat(e.target.value));
+                }
+            });
+        });
+
+        document.getElementById('btnRemoveSelected').addEventListener('click', removeSelected);
+        document.getElementById('btnClearAll').addEventListener('click', clearAll);
+
+        document.getElementById('btnExportGLTF').addEventListener('click', exportGLTF);
+        document.getElementById('btnExportOBJ').addEventListener('click', exportOBJ);
+        document.getElementById('btnShowCode').addEventListener('click', showCode);
+
+        document.getElementById('btnToggleAnim').addEventListener('click', toggleAnimation);
+        document.getElementById('btnAddAnimation').addEventListener('click', addNewAnimation);
+
+        // --- Atalhos ---
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                removeSelected();
+                e.preventDefault();
+            }
+            if (e.key === '1') setTransformMode('translate');
+            if (e.key === '2') setTransformMode('rotate');
+            if (e.key === '3') setTransformMode('scale');
+            if (e.key === 'r' && !e.ctrlKey) {
+                camera.position.set(6, 4, 8);
+                orbitControls.target.set(0, 0, 0);
+                orbitControls.update();
+            }
+            if (e.key === ' ' && !e.ctrlKey) {
+                e.preventDefault();
+                toggleAnimation();
+            }
+            if (e.key === 'c' && !e.ctrlKey && !e.metaKey) {
+                showCode();
+            }
+        });
+
+        transformControls.addEventListener('change', () => {
+            if (selectedObject) {
+                updatePositionUI(selectedObject);
+                updateRotationUI(selectedObject);
+                document.getElementById('scaleSlider').value = selectedObject.scale.x;
+                document.getElementById('scaleValue').textContent = selectedObject.scale.x.toFixed(2);
+            }
+        });
+
+        // --- Objetos iniciais ---
+        const box = addBox();
+        box.position.set(-1.5, 0.5, 0);
+        const sphere = addSphere();
+        sphere.position.set(1.5, 0.5, 0);
+        sphere.material.color.set('#ef4444');
+        const cyl = addCylinder();
+        cyl.position.set(0, 0.5, -1.8);
+        cyl.material.color.set('#22c55e');
+        selectObject(box);
+
+        // --- Loop ---
+        let lastTime = 0;
+        function animate(time) {
+            const delta = Math.min((time - lastTime) / 1000, 0.05);
+            lastTime = time;
+
+            updateAnimations(delta);
+
+            orbitControls.update();
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate(0);
+
+        // --- Resize ---
+        window.addEventListener('resize', () => {
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        });
+
+        console.log('🚀 Editor 3D carregado!');
+        console.log('📤 Importe modelos .glb, .gltf ou .obj');
+        console.log('📄 Pressione "C" para ver o código Three.js');
+        console.log('🛠️ Ferramentas: Mover (1), Girar (2), Escalar (3)');
+        console.log('▶️ Ative animações com Espaço');
+    </script>
+</body>
+</html>
